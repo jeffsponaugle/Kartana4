@@ -1,0 +1,297 @@
+Name	  8bitRF;
+PartNo   K27RFV4;
+Date     01/10/2021;
+Revision 01;
+Designer Sponaugle;
+Company  Ratiometric;
+Assembly None;
+Location None;
+Device   f1504ispplcc44;
+
+/** Inputs **/
+
+Pin [21,20,19,18] = [ASel0..3];
+Pin [37,36,34,33] = [BSel0..3]; /* [12,11,9,6]*/
+Pin [24,25,26,27] = [CSel0..3];
+Pin [12,11] = [CBus0..1];
+Pin 5 = WriteEnable;
+Pin 43 = clkin;
+Pin 44 = !atoaddr;  /* Input from control, output A reg value to address bus (normally Z) */
+
+/** Outputs **/
+
+Pin  [17,8] = [ABus0..1];
+Pin  [41,4] = [BBus0..1];
+
+Pin [31,29] = [AddrB0..1];
+
+
+
+
+/** Nodes  **/
+
+/*  16 Registers, 2 bits each */
+
+Pinnode = [Reg0b0..1];
+Pinnode = [Reg1b0..1];
+Pinnode = [Reg2b0..1];
+Pinnode = [Reg3b0..1];
+
+Pinnode = [Reg4b0..1];
+Pinnode = [Reg5b0..1];
+Pinnode = [Reg6b0..1];
+Pinnode = [Reg7b0..1];
+
+Pinnode = [Reg8b0..1];
+Pinnode = [Reg9b0..1];
+Pinnode = [Reg10b0..1];
+Pinnode = [Reg11b0..1];
+
+Pinnode = [Reg12b0..1];
+Pinnode = [Reg13b0..1];
+Pinnode = [Reg14b0..1];
+Pinnode = [Reg15b0..1];
+
+Pinnode = ASelReg0;
+Pinnode = ASelReg1;
+Pinnode = ASelReg2;
+Pinnode = ASelReg3;
+ 
+
+
+
+/** Fields **/
+
+Field ASelect = [ASel0..3];
+Field BSelect = [BSel0..3];
+Field CSelect = [CSel0..3];
+
+ASelReg0 = ASelect:'b'0000;
+ASelReg1 = ASelect:'b'0001;
+ASelReg2 = ASelect:'b'0010;
+ASelReg3 = ASelect:'b'0011;
+
+/* if atoaddr asserted, turn on output address bus pins */
+
+AddrB0 = ABus0;
+AddrB0.oe = atoaddr;
+AddrB1 = ABus1;
+AddrB1.oe = atoaddr;
+
+/* For each bit, 4 in total */
+
+$REPEAT i=[0..1]
+
+/* A Bus Output, selected by ASel */
+
+ABus{i} = 	ASelReg0 & Reg0b{i}
+		# ASelReg1 & Reg1b{i}
+		# ASelReg2 & Reg2b{i}
+		# ASelReg3 & Reg3b{i}
+		# ASelect:'b'0100 & Reg4b{i}
+		# ASelect:'b'0101 & Reg5b{i}
+		# ASelect:'b'0110 & Reg6b{i}
+		# ASelect:'b'0111 & Reg7b{i}
+		# ASelect:'b'1000 & Reg8b{i}
+		# ASelect:'b'1001 & Reg9b{i}
+		# ASelect:'b'1010 & Reg10b{i}
+		# ASelect:'b'1011 & Reg11b{i}
+		# ASelect:'b'1100 & Reg12b{i}
+		# ASelect:'b'1101 & Reg13b{i}
+		# ASelect:'b'1110 & Reg14b{i}
+		# ASelect:'b'1111 & Reg15b{i};
+
+/* B Bus Output, selected by BSel */
+
+
+BBus{i} = 	BSelect:'b'0000 & Reg0b{i}
+		# BSelect:'b'0001 & Reg1b{i}
+		# BSelect:'b'0010 & Reg2b{i}
+		# BSelect:'b'0011 & Reg3b{i}
+		# BSelect:'b'0100 & Reg4b{i}		
+		# BSelect:'b'0101 & Reg5b{i}
+		# BSelect:'b'0110 & Reg6b{i}
+		# BSelect:'b'0111 & Reg7b{i}
+		# BSelect:'b'1000 & Reg8b{i}
+		# BSelect:'b'1001 & Reg9b{i}
+		# BSelect:'b'1010 & Reg10b{i}
+		# BSelect:'b'1011 & Reg11b{i}
+		# BSelect:'b'1100 & Reg12b{i}
+		# BSelect:'b'1101 & Reg13b{i}
+		# BSelect:'b'1110 & Reg14b{i}
+		# BSelect:'b'1111 & Reg15b{i};
+
+/* Write back into a register, based on WriteEnable and CSelect */
+
+Reg0b{i}.d = WriteEnable & 	(
+				CSelect:'b'0000 & CBus{i}
+				# !(CSelect:'b'0000) & Reg0b{i}
+				)
+	   # !WriteEnable & Reg0b{i};
+
+
+Reg1b{i}.d = WriteEnable & 	(
+				CSelect:'b'0001 & CBus{i}
+				# !(CSelect:'b'0001) & Reg1b{i}
+				)
+	   # !WriteEnable & Reg1b{i};
+
+Reg2b{i}.d = WriteEnable & 	(
+				CSelect:'b'0010 & CBus{i}
+				# !(CSelect:'b'0010) & Reg2b{i}
+				)
+	   # !WriteEnable & Reg2b{i};
+
+Reg3b{i}.d = WriteEnable & 	(
+				CSelect:'b'0011 & CBus{i}
+				# !(CSelect:'b'0011) & Reg3b{i}
+				)
+	   # !WriteEnable & Reg3b{i};
+
+Reg4b{i}.d = WriteEnable & 	(
+				CSelect:'b'0100 & CBus{i}
+				# !(CSelect:'b'0100) & Reg4b{i}
+				)
+	   # !WriteEnable & Reg4b{i};
+
+Reg5b{i}.d = WriteEnable & 	(
+				CSelect:'b'0101 & CBus{i}
+				# !(CSelect:'b'0101) & Reg5b{i}
+				)
+	   # !WriteEnable & Reg5b{i};
+
+
+Reg6b{i}.d = WriteEnable & 	(
+				CSelect:'b'0110 & CBus{i}
+				# !(CSelect:'b'0110) & Reg6b{i}
+				)
+	   # !WriteEnable & Reg6b{i};
+
+Reg7b{i}.d = WriteEnable & 	(
+				CSelect:'b'0111 & CBus{i}
+				# !(CSelect:'b'0111) & Reg7b{i}
+				)
+	   # !WriteEnable & Reg7b{i};
+
+Reg8b{i}.d = WriteEnable & 	(
+				CSelect:'b'1000 & CBus{i}
+				# !(CSelect:'b'1000) & Reg8b{i}
+				)
+	   # !WriteEnable & Reg8b{i};
+
+Reg9b{i}.d = WriteEnable & 	(
+				CSelect:'b'1001 & CBus{i}
+				# !(CSelect:'b'1001) & Reg9b{i}
+				)
+	   # !WriteEnable & Reg9b{i};
+
+Reg10b{i}.d = WriteEnable & 	(
+				CSelect:'b'1010 & CBus{i}
+				# !(CSelect:'b'1010) & Reg10b{i}
+				)
+	   # !WriteEnable & Reg10b{i};
+
+Reg11b{i}.d = WriteEnable & 	(
+				CSelect:'b'1011 & CBus{i}
+				# !(CSelect:'b'1011) & Reg11b{i}
+				)
+	   # !WriteEnable & Reg11b{i};
+
+
+Reg12b{i}.d = WriteEnable & 	(
+				CSelect:'b'1100 & CBus{i}
+				# !(CSelect:'b'1100) & Reg12b{i}
+				)
+	   # !WriteEnable & Reg12b{i};
+
+
+Reg13b{i}.d = WriteEnable & 	(
+				CSelect:'b'1101 & CBus{i}
+				# !(CSelect:'b'1101) & Reg13b{i}
+				)
+	   # !WriteEnable & Reg13b{i};
+
+
+Reg14b{i}.d = WriteEnable & 	(
+				CSelect:'b'1110 & CBus{i}
+				# !(CSelect:'b'1110) & Reg14b{i}
+				)
+	   # !WriteEnable & Reg14b{i};
+
+
+Reg15b{i}.d = WriteEnable & 	(
+				CSelect:'b'1111 & CBus{i}
+				# !(CSelect:'b'1111) & Reg15b{i}
+				)
+	   # !WriteEnable & Reg15b{i};
+	
+Reg0b{i}.ckmux = clkin;
+Reg1b{i}.ckmux = clkin;
+Reg2b{i}.ckmux = clkin;
+Reg3b{i}.ckmux = clkin;
+Reg4b{i}.ckmux = clkin;
+Reg5b{i}.ckmux = clkin;
+Reg6b{i}.ckmux = clkin;
+Reg7b{i}.ckmux = clkin;
+Reg8b{i}.ckmux = clkin;
+Reg9b{i}.ckmux = clkin;
+Reg10b{i}.ckmux = clkin;
+Reg11b{i}.ckmux = clkin;
+Reg12b{i}.ckmux = clkin;
+Reg13b{i}.ckmux = clkin;
+Reg14b{i}.ckmux = clkin;
+Reg15b{i}.ckmux = clkin;
+
+$REPEND
+
+/*
+
+1504 PLCC 44 Pin
+
+
+Total dedicated input used:	1/4 	(25%)
+Total I/O pins used		29/32 	(90%)
+Total Logic cells used 		64/64 	(100%)
+Total Flip-Flop used 		48/64 	(75%)
+Total Foldback logic used 	46/64 	(71%)
+Total Nodes+FB/MCells 		102/64 	(159%)
+Total cascade used 		8
+Total input pins 		22
+Total output pins 		8
+Total Pts 			222
+
+
+1508 PLCC 84 Pin
+
+Total dedicated input used:	1/4 	(25%)
+Total I/O pins used		29/64 	(45%)
+Total Logic cells used 		120/128 	(93%)
+Total Flip-Flop used 		48/128 	(37%)
+Total Foldback logic used 	0/128 	(0%)
+Total Nodes+FB/MCells 		120/128 	(93%)
+Total cascade used 		0
+Total input pins 		22
+Total output pins 		8
+Total Pts 			448
+
+
+*/
+		
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,329 @@
+Name	  8bitControl;
+PartNo   K27CTRV4;
+Date     01/10/2021;
+Revision 01;
+Designer Sponaugle;
+Company  Ratiometric;
+Assembly None;
+Location None;
+Device   f1508ispplcc84;
+
+
+/* Pin Assignments from fitter used for all pins.
+	Pins not used:	73,74 General IO
+
+*/
+
+
+
+/** Inputs **/
+
+/* Pins for Clock Generation */
+Pin 1 = !resetin;
+Pin 83 = clk_in;
+
+Pin [70,69,68,67,65,64,63,61] = [Databus7..0];
+Pin 84 = ZF_in;
+Pin 2 = CF_in;
+
+/* NOTE - This design generates the resetout after the rising edge of Aclk.  Reset input will hold resetout low until both reset input is unasserted, and Aclk rising edge happens. */
+
+
+/** Outputs **/
+
+/* Pins for Clock Generation */
+Pin 80 = Aclk;
+Pin 76 = Bprimeclk;
+Pin 77 = Aprimeclk;
+Pin 81 = Bclk;
+Pin 79 = resetout;
+Pin 75 = clk_master;
+
+
+Pin [50,48,45,44] = [ASel3..0];			/* [60,44,45,48] Register A Select Lines. Always active */
+Pin [60,58,57,56] = [BSel3..0];			/* [57,56,61,58] Register B Select Lines. Always active */
+Pin [36,35,34,33] = [CSel3..0];			/* [36,35,33,34] Register C Select Lines. Always active */
+Pin [20,18,17,16,15,12,11,10] = [CBus7..0];			/* [20,18,15,17,16,5,6,4] CBus ( internal data bus ) lines. HiZ except for IDRtoCBus flag active */
+Pin [41,40,39,37] = [OPCode3..0];			/* [52,40,37,39] We need to expose OpCode 2..0 for the ALU_FUNC, so we will do all 4  */
+Pin [31,30,29,28,27,25,24,22,21] = [AddrBus8..0];  /* [51,21,24,22,25,28,27,30,29] */
+
+/** Output Pins that are control signals **/
+Pin 55 = mem_instreq;
+Pin 8 = rf_we;
+Pin 9 = !alu_oe;
+Pin 5 = !rf_atoaddr;
+Pin 54 = !mem_oe;
+Pin 4 = mem_rw;
+Pin 52 = !mem_memreq;
+Pin 51 = !mem_ioreq;
+Pin 6 = !sh_oe;
+
+/* uState outputs driven by state machine */
+Pin [46,49] = [uS1..0];
+
+Field count = [uS1, uS0];
+
+/** Nodes  - Internal Flipflops and values **/
+pinnode = [IDRL7..0];	/* The flipflops that hold  the instruction decode register */
+pinnode = [IDRH7..0];	/* The flipflops that hold  the instruction decode register */
+pinnode = PC_C1,PC_C2,PC_C3,PC_C4,PC_C5,PC_C6,PC_C7;
+Pinnode = [PC7..0];		/* The flipflops that hold the program counter 8-bits */
+Pinnode = s_PCInc;		/* This needs to be a pinnode because of the complexity of the condition */
+Pinnode = s_PCLoad;		/* This needs to be a pinnode because of the complexity of the condition */
+
+
+/* Clock Generation */
+
+clk_master.d = !clk_master;
+clk_master.ck = clk_in;
+clk_master.ar = resetin;
+
+resetout.d = 'b'1;
+resetout.ck = Aclk;
+resetout.ar = resetin;
+
+Aclk.d = !Aclk;
+Aclk.ck = clk_master;
+Aclk.ar = resetin;
+
+Bclk.d = Aclk;
+Bclk.ck = !clk_master;
+Bclk.ar = resetin;
+
+Bprimeclk = !Bclk;
+Aprimeclk = !Aclk;
+
+
+/* Instruction detection statements.  These are used in other signals */
+i_IsJumpInstruction = (uS1 & IDRH7 & IDRH6 & IDRH5);
+
+
+/* Internal Variables */
+/* NOTE: Many of these are active high signals inside the CPLD, compared to active lower outide */
+
+s_IDRToCBUS = (uS1 & !IDRH7 & !IDRH6 & !IDRH5 & IDRH4);
+s_IDRToAddrBus = (uS1 & IDRH7 & !IDRH6 & !IDRH4);
+s_IDRLowerLatch = !uS1 & !uS0;
+s_IDRUpperLatch = !uS1 & uS0;
+
+/* PCInc needs to be set for all instructions except JMP unless the JMP condition is met */
+s_PCInc = (uS1 & ( !i_IsJumpInstruction # (i_IsJumpInstruction & !s_PCLoad ) ) );	
+/* PCLoad is set for only the jump instruction when the jump condition is met */		
+s_PCLoad = uS1 & i_IsJumpInstruction & ( 
+						  ([IDRH2..0]:'b'000)
+						# ([IDRH2..0]:'b'001 & ZF_in )
+						# ([IDRH2..0]:'b'010 & !ZF_in )
+						# ([IDRH2..0]:'b'011 & CF_in )
+						# ([IDRH2..0]:'b'100 & !CF_in )
+					     );
+
+
+/* External Control Signals (also used internally */
+
+mem_instreq = uS1; 		/* Active Low, so == 0 during all fetch phases */
+
+mem_memreq = (uS1 & (	[OPCode0..3]:'b'10X0 
+		    		# ([OPCode0..3]:'b'10X1 & IDRL4)
+		    	)); 
+
+mem_ioreq = (uS1 & (	 ([OPCode0..3]:'b'10X1 & !IDRL4)
+		    	)); 
+
+
+rf_we = (uS1 & (    [OPCode3..0]:'b'101X 
+		    # [OPCode3..0]:'b'01XX
+		    # [OPCode3..0]:'b'001X
+		    # [OPCode3..0]:'b'0001 
+		  )); 
+
+alu_oe = (uS1 & (   [OPCode3..0]:'b'100X 
+		    # [OPCode3..0]:'b'01XX
+		    # [OPCode3..0]:'b'001X
+		  )); 
+
+rf_atoaddr = (uS1 & ( [OPCode3..0]:'b'10X1 )); 
+
+mem_oe = (uS1 & [OPCode3..0]:'b'10XX);
+
+mem_rw = (uS1 & [OPCode3..0]:'b'100X);
+
+sh_oe = (uS1 & ( [OPCode3..0]:'b'110X )); 
+
+/* uState State Machine */
+
+Sequence count {
+	present 0  next 1;
+	present 1  next 2;
+	present 2  next 0;
+	present 3  next 0;
+}
+count.ck = Aclk;
+count.ar = !resetout;
+
+/* Adder Slice Function, used for adder looping the PC */
+
+function addone_slice_carry(X,Cin,Cout) {
+        Cout    = Cin & X ;              /* Compute carry */        
+}
+
+function addone_slice(X,Cin) {
+        addone_slice = (Cin $ X);    /* Compute sum */
+}
+
+/* Instruction Decode Register - Latched on AClk */
+
+[IDRL7..0].d = ([Databus7..0] & s_IDRLowerLatch) # ( !s_IDRLowerLatch & [IDRL7..0]);
+[IDRL7..0].ck = Bprimeclk;
+[IDRL7..0].ar = !resetout;
+
+
+[IDRH7..0].d = ([Databus7..0] & s_IDRUpperLatch) # ( !s_IDRUpperLatch & [IDRH7..0]);
+[IDRH7..0].ck = Bprimeclk;
+[IDRH7..0].ar = !resetout;
+
+/* Output IDR values to Register Select Bus and Opcode Bus */
+
+[ASel3..0] = [IDRL3..0];
+[BSel3..0] = [IDRL7..4];
+[CSel3..0] = [IDRH3..0];
+[OPCode3..0] = [IDRH7..4];
+
+
+/* Output IDR lower bits to CBus if control signal asserted */
+
+[CBus7..0] = [IDRL7..0];
+[CBus7..0].oe = s_IDRToCBUS;			/* OE control, so CBus only driven is control signal asserted */
+
+/* Program Counter is an internal set of flipflops, clocked on Aclk */
+
+[PC7..0].ckmux = Aclk;
+[PC7..0].ar = !resetout;
+
+
+/* Generate the carry logic statements for the program counter adder (fixed add +1) */
+
+addone_slice_carry(PC0,'b'1,PC_C1);
+addone_slice_carry(PC1,PC_C1, PC_C2);
+addone_slice_carry(PC2,PC_C2, PC_C3);
+addone_slice_carry(PC3,PC_C3, PC_C4);
+addone_slice_carry(PC4,PC_C4, PC_C5);
+addone_slice_carry(PC5,PC_C5, PC_C6);
+addone_slice_carry(PC6,PC_C6, PC_C7);
+/* addone_slice_carry(PC7,PC_C7, PC_C8); */
+
+/* The value going into the program counter is either PC, PC+1, or the IDR */
+
+PC0.d = 	(s_PCInc & (addone_slice(PC0,'b'1)))
+		# ( s_PCLoad & IDRL0 )
+		# (PC0 & !s_PCInc & !s_PCLoad);
+
+PC1.d = 	(s_PCInc & ( addone_slice(PC1,PC_C1)))
+		# ( s_PCLoad & IDRL1 )
+		# (PC1& !s_PCInc & !s_PCLoad);
+
+PC2.d = 	(s_PCInc & (addone_slice(PC2,PC_C2)))
+		# ( s_PCLoad & IDRL2 )
+		# (PC2& !s_PCInc & !s_PCLoad);
+
+PC3.d = 	(s_PCInc & (addone_slice(PC3,PC_C3)))
+		# ( s_PCLoad & IDRL3 )
+		# (PC3 & !s_PCInc & !s_PCLoad);
+
+PC4.d = 	(s_PCInc & (addone_slice(PC4,PC_C4)))
+		# ( s_PCLoad & IDRL4 )
+		# (PC4& !s_PCInc & !s_PCLoad);
+
+PC5.d = 	(s_PCInc & (addone_slice(PC5,PC_C5)))
+		# ( s_PCLoad & IDRL5 )
+		# (PC5& !s_PCInc & !s_PCLoad);
+
+PC6.d = 	(s_PCInc & (addone_slice(PC6,PC_C6)))
+		# ( s_PCLoad & IDRL6 )
+		# (PC6& !s_PCInc & !s_PCLoad);
+
+PC7.d = 	(s_PCInc & (addone_slice(PC7,PC_C7)))
+		# ( s_PCLoad & IDRL7)
+		# (PC7& !s_PCInc & !s_PCLoad);
+
+
+/* Address bus is either the PC<<1, or the IDR lower 8 bits, OE controlled. */
+
+AddrBus8 = (PC7 & !mem_instreq);
+AddrBus7 = (PC6 & !mem_instreq) # ( IDRL7 & s_IDRToAddrBus );
+AddrBus6 = (PC5 & !mem_instreq) # ( IDRL6 & s_IDRToAddrBus );
+AddrBus5 = (PC4 & !mem_instreq) # ( IDRL5 & s_IDRToAddrBus );
+AddrBus4 = (PC3 & !mem_instreq) # ( IDRL4 & s_IDRToAddrBus );
+AddrBus3 = (PC2 & !mem_instreq) # ( IDRL3 & s_IDRToAddrBus );
+AddrBus2 = (PC1 & !mem_instreq) # ( IDRL2 & s_IDRToAddrBus );
+AddrBus1 = (PC0 & !mem_instreq) # ( IDRL1 & s_IDRToAddrBus );
+AddrBus0 = (uS0 & !mem_instreq) # ( IDRL0 & s_IDRToAddrBus );
+[AddrBus8..0].oe = !mem_instreq # s_IDRToAddrBus;
+
+/**
+
+Total dedicated input used:	3/4 	(75%)
+Total I/O pins used		58/64 	(90%)
+Total Logic cells used 		87/128 	(67%)
+Total Flip-Flop used 		26/128 	(20%)
+Total Foldback logic used 	0/128 	(0%)
+Total Nodes+FB/MCells 		87/128 	(67%)
+Total cascade used 		0
+Total input pins 		17
+Total output pins 		44
+Total Pts 			303
+
+Total dedicated input used:	3/4 	(75%)
+Total I/O pins used		58/64 	(90%)
+Total Logic cells used 		79/128 	(61%)
+Total Flip-Flop used 		26/128 	(20%)
+Total Foldback logic used 	6/128 	(4%)
+Total Nodes+FB/MCells 		85/128 	(66%)
+Total cascade used 		0
+Total input pins 		17
+Total output pins 		44
+Total Pts 			280
+
+Total dedicated input used:	3/4 	(75%)
+Total I/O pins used		58/64 	(90%)
+Total Logic cells used 		55/128 	(42%)
+Total Flip-Flop used 		26/128 	(20%)
+Total Foldback logic used 	6/128 	(4%)
+Total Nodes+FB/MCells 		61/128 	(47%)
+Total cascade used 		0
+Total input pins 		17
+Total output pins 		44
+Total Pts 			151
+
+
+
+
+
+**/
+
+
+
+
+
+
+
+
+
+		
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
